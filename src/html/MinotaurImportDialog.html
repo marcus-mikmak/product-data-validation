@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+    <style>
+      body { padding: 20px; font-family: Arial, sans-serif; }
+      #pb-cont { width: 100%; background: #eee; height: 20px; margin: 15px 0; border-radius: 10px; overflow: hidden; }
+      #pb { width: 100%; height: 100%; background: #00A6A4; }
+      .hidden { display: none; }
+      button { padding: 10px; background: #00A6A4; color: white; border: none; cursor: pointer; }
+    </style>
+  </head>
+  <body>
+    <h3>Minotaur Import</h3>
+    <div id="ui-main">
+      <input type="file" id="file" accept=".csv, .xlsx">
+      <br><br><button id="go">Import Data</button>
+    </div>
+    <div id="ui-prog" class="hidden">
+      <p>Sending file to Excel...</p>
+      <div id="pb-cont"><div id="pb"></div></div>
+    </div>
+
+    <script>
+      Office.onReady(function() {});
+
+      document.getElementById('go').onclick = function() {
+        const file = document.getElementById('file').files[0];
+        if(!file) return;
+
+        document.getElementById('ui-main').classList.add('hidden');
+        document.getElementById('ui-prog').classList.remove('hidden');
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          // Send the file data to the Excel backend
+          const payload = {
+            action: "MINOTAUR_IMPORT",
+            csvData: e.target.result
+          };
+          Office.context.ui.messageParent(JSON.stringify(payload));
+        };
+        reader.readAsText(file);
+      };
+    </script>
+  </body>
+</html>
