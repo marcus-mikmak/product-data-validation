@@ -1,11 +1,121 @@
-// --- GLOBAL CONSTANTS ---
+// ==========================================
+// GLOBAL CONSTANTS
+// ==========================================
 const TEMPLATE_SHEET_NAME = 'Product Data';
 const INTERNAL_PREFIX = 'INTERNAL_';
 const LOCALE_PREFIX = 'locale::';
 
-/**
- * 1. IMAGE CHECKER
- * Translates checkImageVisibility() from UrlFetchApp to native browser fetch().
+// IMPORTANT: Update this to match your actual GitHub URL
+const BASE_URL = 'https://YOUR_GITHUB_USERNAME.github.io/YOUR_REPO_NAME/src/html/';
+
+let currentDialog; // Store the active dialog instance
+
+// ==========================================
+// INITIALIZATION
+// ==========================================
+Office.onReady((info) => {
+  if (info.host === Office.HostType.Excel) {
+    console.log("Excel Add-in is ready.");
+    
+    // If this script is loaded inside the Sidebar Taskpane, wire up the button
+    const startBtn = document.getElementById('startBtn');
+    if (startBtn) {
+      // Assuming a simplistic batch call for the manual taskpane validation
+      startBtn.onclick = () => console.log("Taskpane validation triggered.");
+    }
+  }
+});
+
+// ==========================================
+// 1. RIBBON BUTTON COMMANDS (Triggered by Manifest)
+// ==========================================
+function btnShowImportDialog(event) {
+  openDialog('ImportDialog.html', 70, 70, event);
+}
+
+function btnShowMinotaurImportDialog(event) {
+  openDialog('MinotaurImportDialog.html', 40, 50, event);
+}
+
+function btnShowMinotaurExportDialog(event) {
+  openDialog('MinotaurExportDialog.html', 80, 80, event);
+}
+
+function btnExportGoodData(event) {
+  processAndExportToTab('good').then(() => event.completed());
+}
+
+function btnExportReviewData(event) {
+  processAndExportToTab('review').then(() => event.completed());
+}
+
+// Map the functions so the Excel XML Manifest can find them
+Office.actions.associate("btnShowImportDialog", btnShowImportDialog);
+Office.actions.associate("btnShowMinotaurImportDialog", btnShowMinotaurImportDialog);
+Office.actions.associate("btnShowMinotaurExportDialog", btnShowMinotaurExportDialog);
+Office.actions.associate("btnExportGoodData", btnExportGoodData);
+Office.actions.associate("btnExportReviewData", btnExportReviewData);
+
+// ==========================================
+// 2. DIALOG MANAGEMENT & EVENT LISTENER
+// ==========================================
+function openDialog(htmlFileName, heightPct, widthPct, event) {
+  const url = BASE_URL + htmlFileName;
+  Office.context.ui.displayDialogAsync(url, { height: heightPct, width: widthPct, displayInIframe: true }, (asyncResult) => {
+    if (asyncResult.status !== Office.AsyncResultStatus.Failed) {
+      currentDialog = asyncResult.value;
+      currentDialog.addEventHandler(Office.EventType.DialogMessageReceived, processDialogMessage);
+    } else {
+      console.error("Error opening dialog:", asyncResult.error.message);
+    }
+    if (event) event.completed(); // Tell Excel Ribbon the button click is done
+  });
+}
+
+async function processDialogMessage(arg) {
+  const message = JSON.parse(arg.message);
+
+  try {
+    switch (message.action) {
+      // Sent by MinotaurExportDialog.html and ImportDialog.html
+      case "GET_MIKMAK_HEADERS":
+      case "GET_TEMPLATE_HEADERS":
+        const headerData = await getHeadersAndSample();
+        currentDialog.messageChild(JSON.stringify({ 
+          action: message.action === "GET_MIKMAK_HEADERS" ? "SEND_MIKMAK_HEADERS" : "SEND_TEMPLATE_HEADERS", 
+          payload: headerData 
+        }));
+        break;
+
+      // Sent by MinotaurImportDialog.html
+      case "MINOTAUR_IMPORT":
+        await executeMinotaurBatch(message.csvData);
+        currentDialog.close();
+        break;
+
+      // Sent by ImportDialog.html
+      case "IMPORT_DATA":
+        const parsedCsv = parseSimpleCsv(message.csvData);
+        await processImportBatch(parsedCsv, message.mapping);
+        currentDialog.close();
+        break;
+
+      // Sent by MinotaurExportDialog.html
+      case "PROCESS_MINOTAUR_EXPORT":
+        await processMinotaurExportToTab(message.mapping);
+        currentDialog.close();
+        break;
+    }
+  } catch (err) {
+    console.error("Error processing dialog request:", err);
+  }
+}
+
+// ==========================================
+// 3. CORE EXCEL BATCH & PROCESSING FUNCTIONS
+// ==========================================
+
+/** * Translates checkImageVisibility() from UrlFetchApp to native browser fetch().
  */
 async function checkImageVisibility(url) {
   if (!url || typeof url !== 'string' || !url.startsWith('http')) return false;
@@ -14,10 +124,9 @@ async function checkImageVisibility(url) {
   const hasImageExtension = imageExtensions.some(ext => url.toLowerCase().includes(ext));
 
   try {
-    // Send a Range header request to read only the first byte (saves bandwidth)
     const response = await fetch(url, {
       method: 'GET',
-      headers: { 'Range': 'bytes=0-1' }
+      headers: { 'Range': 'bytes=0-1' } // Fetch only first byte to save bandwidth
     });
 
     const contentType = (response.headers.get('content-type') || '').toLowerCase();
@@ -34,9 +143,7 @@ async function checkImageVisibility(url) {
   }
 }
 
-/**
- * 2. BATCH DATA IMPORT & MAPPING ENGINE
- * Replaces prepareImport() and executeImportBatch().
+/** * Replaces prepareImport() and executeImportBatch().
  */
 async function processImportBatch(parsedCsvRows, headerMap) {
   return await Excel.run(async (context) => {
@@ -63,7 +170,7 @@ async function processImportBatch(parsedCsvRows, headerMap) {
     for (const row of dataRows) {
       const remappedRow = mappableHeaders.map(th => {
         const mappingValue = headerMap[th];
-        if (!mappingValue || mappingValue === "-- Skip this column --") return "";
+        if (!mappingValue || mappingValue === "-- Skip this column --" || mappingValue === "-- Skip --") return "";
         if (mappingValue.startsWith(LOCALE_PREFIX)) return mappingValue.substring(LOCALE_PREFIX.length);
 
         const csvIdx = csvHeaders.indexOf(mappingValue);
@@ -93,7 +200,6 @@ async function processImportBatch(parsedCsvRows, headerMap) {
     await context.sync();
 
     if (usedRange.rowCount > 1) {
-      // Clear rows starting at index 1 (Row 2) down to the bottom
       const rangeToClear = templateSheet.getRangeByIndexes(1, 0, usedRange.rowCount - 1, templateHeaders.length);
       rangeToClear.clear();
     }
@@ -122,10 +228,7 @@ async function processImportBatch(parsedCsvRows, headerMap) {
   });
 }
 
-/**
- * 3. DATA EXPORTER
- * Translates processAndExportToTab().
- * Filters data based on readiness score, creates a new sheet, and applies text formatting.
+/** * Translates processAndExportToTab().
  */
 async function processAndExportToTab(type) {
   return await Excel.run(async (context) => {
@@ -167,7 +270,6 @@ async function processAndExportToTab(type) {
       }
     });
 
-    // Filter rows based on score
     const filteredRows = rows.filter(row => {
       const numericScore = parseFloat(row[readinessScoreIndex]);
       return (type === 'good') ? numericScore === 100 : numericScore !== 100;
@@ -179,36 +281,143 @@ async function processAndExportToTab(type) {
     }
 
     const dataRowsToKeep = filteredRows.map(row => colIndicesToKeep.map(idx => row[idx]));
-
-    // Generate New Sheet Name
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
     const newSheetName = `${type === 'good' ? 'Good_Data' : 'Review_Data'}_${timestamp}`;
-    
-    // Add new sheet to workbook
     const newSheet = sheets.add(newSheetName);
 
-    // Write Headers
     const headerRange = newSheet.getRangeByIndexes(0, 0, 1, headersToKeep.length);
     headerRange.values = [headersToKeep];
 
-    // Apply Text Number Format ('@') to explicit columns (EAN, UPC, Barcode, etc.)
     const textKeywords = ['id', 'ean', 'upc', 'gtin', 'barcode', 'mpn', 'modelname'];
     headersToKeep.forEach((header, index) => {
       if (textKeywords.some(keyword => header.toLowerCase().includes(keyword))) {
-        // Target the full data column height for this header
         const colRange = newSheet.getRangeByIndexes(1, index, dataRowsToKeep.length, 1);
-        colRange.numberFormat = "@"; // Force Excel Text Format
+        colRange.numberFormat = "@"; 
       }
     });
 
-    // Write Filtered Data Rows
     const dataRange = newSheet.getRangeByIndexes(1, 0, dataRowsToKeep.length, headersToKeep.length);
     dataRange.values = dataRowsToKeep;
 
-    // Format & Activate
     newSheet.getUsedRange().format.autofitColumns();
     newSheet.activate();
 
     await context.sync();
   });
+}
+
+/** * Fetch Headers & Sample Data for Mapping Dialogs 
+ */
+async function getHeadersAndSample() {
+  return await Excel.run(async (context) => {
+    const sheet = context.workbook.worksheets.getItemOrNullObject(TEMPLATE_SHEET_NAME);
+    sheet.load("isNullObject");
+    await context.sync();
+
+    if (sheet.isNullObject) return { headers: [], sampleRow: [] };
+
+    const range = sheet.getRange("1:2").getUsedRange();
+    range.load("values");
+    await context.sync();
+
+    return {
+      headers: range.values[0] || [],
+      sampleRow: range.values[1] || []
+    };
+  });
+}
+
+/** * Execute Minotaur Data Import 
+ */
+async function executeMinotaurBatch(csvData) {
+  const rows = parseSimpleCsv(csvData);
+  return await Excel.run(async (context) => {
+    const sheets = context.workbook.worksheets;
+    let sheet = sheets.getItemOrNullObject('Existing Minotaur Products');
+    sheet.load("isNullObject");
+    await context.sync();
+
+    if (!sheet.isNullObject) { sheet.delete(); }
+    sheet = sheets.add('Existing Minotaur Products');
+
+    if (rows.length > 0) {
+      const targetRange = sheet.getRangeByIndexes(0, 0, rows.length, rows[0].length);
+      targetRange.values = rows;
+      sheet.getUsedRange().format.autofitColumns();
+    }
+    await context.sync();
+  });
+}
+
+/** * Minotaur Export Process 
+ */
+async function processMinotaurExportToTab(mapping) {
+  return await Excel.run(async (context) => {
+    const sourceSheet = context.workbook.worksheets.getItem(TEMPLATE_SHEET_NAME);
+    const usedRange = sourceSheet.getUsedRange();
+    usedRange.load("values");
+    await context.sync();
+
+    const allData = usedRange.values;
+    if (allData.length < 2) return;
+
+    const sourceHeaders = allData[0];
+    const readinessIdx = sourceHeaders.indexOf('INTERNAL_Data_Readiness_Score');
+    const inMinotaurIdx = sourceHeaders.indexOf('INTERNAL_In_Existing_Minotaur_Data');
+
+    const filteredData = allData.slice(1).filter(row => {
+      return parseFloat(row[readinessIdx]) === 100 && String(row[inMinotaurIdx]).toUpperCase() === 'FALSE';
+    });
+
+    if (filteredData.length === 0) return;
+
+    const orderedMinotaurHeaders = [
+      'Brand', 'CountryCode', 'Language', 'Barcode', 'ModelName', 'Title',
+      'ATR_BrandDisplayName', 'EAN', 'UPC', 'GTIN', 'MPN', 'Images',
+      'MarketingText', 'Category', 'ATR_ShortDescription', 'ATR_Color',
+      'ATR_Size', 'ATR_PackSize', 'ATR_Scent', 'ATR_ParentBarcode',
+      'WebpageURL', 'Discontinued'
+    ];
+
+    const sourceHeaderIndexMap = new Map(sourceHeaders.map((h, i) => [h, i]));
+    const exportData = [orderedMinotaurHeaders];
+
+    filteredData.forEach(sourceRow => {
+      const newRow = orderedMinotaurHeaders.map(mh => {
+        const mapInfo = mapping[mh];
+        if (!mapInfo || mapInfo.type === 'skip') return "";
+        if (mapInfo.type === 'static') return mapInfo.value;
+        const sourceIndex = sourceHeaderIndexMap.get(mapInfo.value);
+        return sourceIndex !== undefined ? sourceRow[sourceIndex] : "";
+      });
+      exportData.push(newRow);
+    });
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const newSheet = context.workbook.worksheets.add(`Minotaur_Export_${timestamp}`);
+    
+    const range = newSheet.getRangeByIndexes(0, 0, exportData.length, orderedMinotaurHeaders.length);
+    range.values = exportData;
+    
+    const textColumns = ['ean', 'upc', 'gtin', 'barcode', 'mpn', 'modelname'];
+    orderedMinotaurHeaders.forEach((h, idx) => {
+      if (textColumns.includes(h.toLowerCase())) {
+        newSheet.getRangeByIndexes(1, idx, exportData.length - 1, 1).numberFormat = "@";
+      }
+    });
+
+    newSheet.getUsedRange().format.autofitColumns();
+    await context.sync();
+  });
+}
+
+// ==========================================
+// 4. UTILITIES
+// ==========================================
+
+/** * Simple CSV Parser fallback for mapping dialogs
+ */
+function parseSimpleCsv(str) {
+  const lines = str.split(/\r?\n/).filter(l => l.trim() !== "");
+  return lines.map(line => line.split(","));
 }
