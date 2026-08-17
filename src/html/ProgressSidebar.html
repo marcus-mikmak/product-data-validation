@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+    <style>
+      body { padding: 15px; font-family: Arial, sans-serif; }
+      #pbc { width: 100%; background: #eee; height: 15px; margin: 10px 0; border-radius: 8px; overflow: hidden; }
+      #pb { width: 0%; height: 100%; background: #00A6A4; transition: 0.3s; }
+      button { padding: 8px 16px; background: #00A6A4; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+    </style>
+  </head>
+  <body>
+    <h4>Image Validation</h4>
+    <p style="font-size: 0.9em;">Validating the <b>image_link</b> column...</p>
+    <div id="pbc"><div id="pb"></div></div>
+    <p id="s" style="font-weight: bold;">Ready to check.</p>
+    <button id="startBtn">Start Validation</button>
+
+    <script>
+      Office.onReady(function(info) {
+        document.getElementById('startBtn').onclick = startValidation;
+      });
+
+      function startValidation() {
+        document.getElementById('startBtn').disabled = true;
+        document.getElementById('s').innerText = "Validation running in background...";
+        document.getElementById('pb').style.width = "50%"; // Simulated progress for UI
+        
+        // Send message to the backend script to run the validation
+        // (Assuming you route this through a shared global state or backend function)
+        Office.context.ui.messageParent(JSON.stringify({ action: "START_IMAGE_VALIDATION" }));
+      }
+    </script>
+  </body>
+</html>
