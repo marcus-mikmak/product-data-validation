@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+      /* Keeping your layout CSS */
+      body { font-family: Arial, sans-serif; margin: 20px; background-color: #fff; }
+      .hidden { display: none !important; }
+      #loader-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.85); z-index: 1000; display: none; flex-direction: column; justify-content: center; align-items: center; }
+      button { padding: 10px 20px; font-size: 16px; cursor: pointer; background-color: #00A6A4; color: white; border: none; border-radius: 4px; }
+    </style>
+  </head>
+  <body>
+
+    <div id="loader-overlay"><p id="loader-text">Processing...</p></div>
+
+    <div id="upload-view">
+      <h2>Import Brand Provided Data</h2>
+      <input type="file" id="fileInput" accept=".csv, .xlsx">
+      <br><br><button id="nextButton">Next: Map Headers</button>
+    </div>
+
+    <div id="mapping-view" class="hidden">
+      <h2>Map Headers to Template</h2>
+      <div id="mapper-body"></div>
+      <br><button id="importButton">Process & Import</button>
+    </div>
+
+    <script>
+      let csvContents = "", importedHeaders = [], firstDataRow = [], mappableTemplateHeaders = [];
+
+      Office.onReady(function(info) {
+        document.getElementById('nextButton').onclick = handleFile;
+        document.getElementById('importButton').onclick = executeImport;
+
+        // Listen for template headers from Excel
+        Office.context.ui.addHandlerAsync(Office.EventType.DialogParentMessageReceived, function(arg) {
+          const response = JSON.parse(arg.message);
+          if (response.action === "SEND_TEMPLATE_HEADERS") {
+             mappableTemplateHeaders = response.payload.headers;
+             setupMapper();
+          }
+        });
+      });
+
+      function handleFile() {
+        const file = document.getElementById('fileInput').files[0];
+        if(!file) return;
+        document.getElementById('loader-overlay').style.display = 'flex';
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          if (file.name.endsWith('.xlsx')) {
+            const data = new Uint8Array(e.target.result);
+            csvContents = XLSX.utils.sheet_to_csv(XLSX.read(data, {type:'array'}).Sheets[XLSX.read(data, {type:'array'}).SheetNames[0]]);
+          } else { 
+            csvContents = e.target.result; 
+          }
+          
+          // Basic CSV header extraction for the mapping UI
+          const lines = csvContents.split('\n');
+          importedHeaders = lines[0].split(',');
+          firstDataRow = lines[1] ? lines[1].split(',') : [];
+
+          // Request the template headers from the Excel backend
+          Office.context.ui.messageParent(JSON.stringify({ action: "GET_TEMPLATE_HEADERS" }));
+        };
+        file.name.endsWith('.xlsx') ? reader.readAsArrayBuffer(file) : reader.readAsText(file);
+      }
+
+      function setupMapper() {
+        document.getElementById('loader-overlay').style.display = 'none';
+        document.getElementById('upload-view').classList.add('hidden');
+        document.getElementById('mapping-view').classList.remove('hidden');
+
+        const body = document.getElementById('mapper-body');
+        const fileColumnsOptions = `<option value="">-- Skip --</option>` + importedHeaders.map(h => `<option value="${h}">${h}</option>`).join('');
+
+        body.innerHTML = mappableTemplateHeaders.map(th => {
+          return `<div><label>${th}</label><br><select id="sel_${th}">${fileColumnsOptions}</select></div><br>`;
+        }).join('');
+      }
+
+      function executeImport() {
+        const map = {};
+        mappableTemplateHeaders.forEach(th => {
+          map[th] = document.getElementById(`sel_${th}`).value;
+        });
+
+        document.getElementById('loader-overlay').style.display = 'flex';
+        document.getElementById('loader-text').innerText = "Sending to Excel...";
+
+        Office.context.ui.messageParent(JSON.stringify({
+          action: "IMPORT_DATA",
+          csvData: csvContents,
+          mapping: map
+        }));
+      }
+    </script>
+  </body>
+</html>
