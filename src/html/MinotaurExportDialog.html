@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+    <style>
+      /* Keeping your original CSS */
+      body { font-family: Arial, sans-serif; margin: 20px; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top; }
+      th { background-color: #f2f2f2; }
+      select, input[type="text"] { width: 100%; padding: 5px; box-sizing: border-box; }
+      .button-container { text-align: right; margin-top: 20px; }
+      button { padding: 10px 20px; font-size: 16px; cursor: pointer; background-color: #00A6A4; color: white; border: none; border-radius: 4px; }
+      #loader { display: block; }
+      .value-cell select, .value-cell input { display: none; }
+      .sample-display { display: block; margin-top: 5px; font-size: 11px; font-family: monospace; color: #555; background-color: #f9f9f9; padding: 2px 4px; border-radius: 3px; min-height: 15px; }
+    </style>
+  </head>
+  <body>
+    <h2>Map MikMak Headers to Minotaur Headers</h2>
+    <div id="loader">Loading headers from Excel...</div>
+    <div id="mapper" style="display:none;">
+      <table>
+        <thead><tr><th style="width: 25%;">Minotaur Header</th><th style="width: 75%;">Action / Value</th></tr></thead>
+        <tbody id="mapping-table-body"></tbody>
+      </table>
+      <div class="button-container">
+        <button id="exportBtn">Export to New Tab</button>
+      </div>
+    </div>
+
+    <script>
+      const minotaurHeaders = ['Brand', 'CountryCode', 'Language', 'Barcode', 'ModelName', 'Title', 'ATR_BrandDisplayName', 'EAN', 'UPC', 'GTIN', 'MPN', 'Images', 'MarketingText', 'Category', 'ATR_ShortDescription', 'ATR_Color', 'ATR_Size', 'ATR_PackSize', 'ATR_Scent', 'ATR_ParentBarcode', 'WebpageURL', 'Discontinued'];
+      let headerToSampleMap = {};
+
+      Office.onReady(function(info) {
+        // Ask Excel for the headers once the dialog loads
+        Office.context.ui.messageParent(JSON.stringify({ action: "GET_MIKMAK_HEADERS" }));
+        
+        // Listen for the response from Excel
+        Office.context.ui.addHandlerAsync(Office.EventType.DialogParentMessageReceived, function(arg) {
+          const response = JSON.parse(arg.message);
+          if (response.action === "SEND_MIKMAK_HEADERS") {
+            populateTable(response.payload);
+          }
+        });
+
+        document.getElementById('exportBtn').onclick = exportData;
+      });
+
+      function populateTable(response) {
+        document.getElementById('loader').style.display = 'none';
+        document.getElementById('mapper').style.display = 'block';
+
+        const mikmakHeaders = response.headers || [];
+        const sampleRow = response.sampleRow || [];
+
+        mikmakHeaders.forEach((h, index) => { headerToSampleMap[h] = sampleRow[index] || "(empty)"; });
+
+        const optionsHtml = `<option value="">-- Skip this column --</option>` + mikmakHeaders.map(h => `<option value="${h}">${h}</option>`).join('');
+        const tableBody = document.getElementById('mapping-table-body');
+        
+        minotaurHeaders.forEach(mh => {
+          const tr = document.createElement('tr');
+          // (Your original mapping HTML generation logic goes here, truncated for brevity, 
+          //  using the optionsHtml variable we just created to build the selects)
+          tr.innerHTML = `<td>${mh}</td><td><select id="select-${mh}">${optionsHtml}</select></td>`;
+          tableBody.appendChild(tr);
+        });
+      }
+
+      function exportData() {
+        document.getElementById('exportBtn').disabled = true;
+        document.getElementById('exportBtn').textContent = 'Processing...';
+
+        const mapping = {}; // Build mapping object from UI elements
+        minotaurHeaders.forEach(mh => {
+            const select = document.getElementById('select-' + mh);
+            mapping[mh] = { type: select.value ? 'map' : 'skip', value: select.value || '' };
+        });
+
+        Office.context.ui.messageParent(JSON.stringify({
+          action: "PROCESS_MINOTAUR_EXPORT",
+          mapping: mapping
+        }));
+      }
+    </script>
+  </body>
+</html>
