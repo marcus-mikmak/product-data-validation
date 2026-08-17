@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OfficeApp 
+  xmlns="http://schemas.microsoft.com/office/appforoffice/1.1" 
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+  xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0" 
+  xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
+  xsi:type="TaskPaneApp">
+
+  <Id>d1a58c0a-0b2a-4318-9773-f11183c2e173</Id>
+  <Version>1.0.0.0</Version>
+  <ProviderName>Your Implementation Team</ProviderName>
+  <DefaultLocale>en-US</DefaultLocale>
+  <DisplayName DefaultValue="Brand Validation Tools" />
+  <Description DefaultValue="Tools for migrating, mapping, and validating product data." />
+  <IconUrl DefaultValue="https://marcus-mikmak.github.io/product-data-validation/assets/icon-64.png" />
+  <HighResolutionIconUrl DefaultValue="https://marcus-mikmak.github.io/product-data-validation/assets/icon-128.png" />
+  <SupportUrl DefaultValue="https://github.com/marcus-mikmak/product-data-validation/issues" />
+
+  <Hosts>
+    <Host Name="Workbook" />
+  </Hosts>
+
+  <Requirements>
+    <Sets DefaultMinVersion="1.1">
+      <Set Name="SharedRuntime" MinVersion="1.1"/>
+    </Sets>
+  </Requirements>
+
+  <DefaultSettings>
+    <SourceLocation DefaultValue="https://marcus-mikmak.github.io/product-data-validation/src/html/ProgressSidebar.html" />
+  </DefaultSettings>
+
+  <Permissions>ReadWriteDocument</Permissions>
+
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <Hosts>
+      <Host xsi:type="Workbook">
+        <DesktopFormFactor>
+          <FunctionFile resid="Commands.Url" />
+
+          <ExtensionPoint xsi:type="PrimaryCommandSurface">
+            <CustomTab id="TabBrandValidation">
+              <Group id="GroupImport">
+                <Label resid="GroupImport.Label" />
+                
+                <Control xsi:type="Button" id="BtnImportBrand">
+                  <Label resid="BtnImportBrand.Label" />
+                  <Supertip><Title resid="BtnImportBrand.Label" /><Description resid="BtnImportBrand.Desc" /></Supertip>
+                  <Icon><bt:Image size="64" resid="Icon.Import" /></Icon>
+                  <Action xsi:type="ExecuteFunction"><FunctionName>btnShowImportDialog</FunctionName></Action>
+                </Control>
+
+                <Control xsi:type="Button" id="BtnImportMinotaur">
+                  <Label resid="BtnImportMinotaur.Label" />
+                  <Supertip><Title resid="BtnImportMinotaur.Label" /><Description resid="BtnImportMinotaur.Desc" /></Supertip>
+                  <Icon><bt:Image size="64" resid="Icon.Import" /></Icon>
+                  <Action xsi:type="ExecuteFunction"><FunctionName>btnShowMinotaurImportDialog</FunctionName></Action>
+                </Control>
+                
+                <Control xsi:type="Button" id="BtnValidateImages">
+                  <Label resid="BtnValidateImages.Label" />
+                  <Supertip><Title resid="BtnValidateImages.Label" /><Description resid="BtnValidateImages.Desc" /></Supertip>
+                  <Icon><bt:Image size="64" resid="Icon.Validate" /></Icon>
+                  <Action xsi:type="ShowTaskpane"><SourceLocation resid="Taskpane.Url" /></Action>
+                </Control>
+              </Group>
+
+              <Group id="GroupExport">
+                <Label resid="GroupExport.Label" />
+
+                <Control xsi:type="Button" id="BtnExportGood">
+                  <Label resid="BtnExportGood.Label" />
+                  <Supertip><Title resid="BtnExportGood.Label" /><Description resid="BtnExportGood.Desc" /></Supertip>
+                  <Icon><bt:Image size="64" resid="Icon.ExportGood" /></Icon>
+                  <Action xsi:type="ExecuteFunction"><FunctionName>btnExportGoodData</FunctionName></Action>
+                </Control>
+
+                <Control xsi:type="Button" id="BtnExportReview">
+                  <Label resid="BtnExportReview.Label" />
+                  <Supertip><Title resid="BtnExportReview.Label" /><Description resid="BtnExportReview.Desc" /></Supertip>
+                  <Icon><bt:Image size="64" resid="Icon.ExportReview" /></Icon>
+                  <Action xsi:type="ExecuteFunction"><FunctionName>btnExportReviewData</FunctionName></Action>
+                </Control>
+
+                <Control xsi:type="Button" id="BtnExportMinotaur">
+                  <Label resid="BtnExportMinotaur.Label" />
+                  <Supertip><Title resid="BtnExportMinotaur.Label" /><Description resid="BtnExportMinotaur.Desc" /></Supertip>
+                  <Icon><bt:Image size="64" resid="Icon.ExportMinotaur" /></Icon>
+                  <Action xsi:type="ExecuteFunction"><FunctionName>btnShowMinotaurExportDialog</FunctionName></Action>
+                </Control>
+              </Group>
+            </CustomTab>
+          </ExtensionPoint>
+        </DesktopFormFactor>
+      </Host>
+    </Hosts>
+
+    <Resources>
+      <bt:Images>
+        <bt:Image id="Icon.Import" DefaultValue="https://marcus-mikmak.github.io/product-data-validation/assets/import-64.png" />
+        <bt:Image id="Icon.Validate" DefaultValue="https://marcus-mikmak.github.io/product-data-validation/assets/validate-64.png" />
+        <bt:Image id="Icon.ExportGood" DefaultValue="https://marcus-mikmak.github.io/product-data-validation/assets/export-good-64.png" />
+        <bt:Image id="Icon.ExportReview" DefaultValue="https://marcus-mikmak.github.io/product-data-validation/assets/export-review-64.png" />
+        <bt:Image id="Icon.ExportMinotaur" DefaultValue="https://marcus-mikmak.github.io/product-data-validation/assets/export-minotaur-64.png" />
+      </bt:Images>
+      <bt:Urls>
+        <bt:Url id="Commands.Url" DefaultValue="https://marcus-mikmak.github.io/product-data-validation/src/html/Commands.html" />
+        <bt:Url id="Taskpane.Url" DefaultValue="https://marcus-mikmak.github.io/product-data-validation/src/html/ProgressSidebar.html" />
+      </bt:Urls>
+      <bt:ShortStrings>
+        <bt:String id="GroupImport.Label" DefaultValue="Data Import" />
+        <bt:String id="GroupExport.Label" DefaultValue="Data Export" />
+        <bt:String id="BtnImportBrand.Label" DefaultValue="Import Brand File" />
+        <bt:String id="BtnImportMinotaur.Label" DefaultValue="Import Minotaur" />
+        <bt:String id="BtnValidateImages.Label" DefaultValue="Validate Images" />
+        <bt:String id="BtnExportGood.Label" DefaultValue="Export Good Data" />
+        <bt:String id="BtnExportReview.Label" DefaultValue="Export for Review" />
+        <bt:String id="BtnExportMinotaur.Label" DefaultValue="Export to Minotaur" />
+      </bt:ShortStrings>
+      <bt:LongStrings>
+        <bt:String id="BtnImportBrand.Desc" DefaultValue="Map and import a brand CSV." />
+        <bt:String id="BtnImportMinotaur.Desc" DefaultValue="Import existing Minotaur products." />
+        <bt:String id="BtnValidateImages.Desc" DefaultValue="Check if image URLs are active." />
+        <bt:String id="BtnExportGood.Desc" DefaultValue="Export products with 100% readiness." />
+        <bt:String id="BtnExportReview.Desc" DefaultValue="Export products needing review." />
+        <bt:String id="BtnExportMinotaur.Desc" DefaultValue="Map and export for Minotaur system." />
+      </bt:LongStrings>
+    </Resources>
+  </VersionOverrides>
+</OfficeApp>
